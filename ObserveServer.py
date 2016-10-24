@@ -188,7 +188,6 @@ def main():
             # Close
             disconnect(con, protocol)
             print('Done')
-}
 
 if __name__ == "__main__":
   main()
