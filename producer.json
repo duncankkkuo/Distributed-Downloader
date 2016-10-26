@@ -1,7 +1,7 @@
 {
     "observe_target": {
         "server_1": {
-            "protocol": "ftp",
+            "protocol": "sftp",
             "host": "192.168.122.140",
             "port": 22,
             "file_dir_path": "/home/worker1/file/",
@@ -9,7 +9,8 @@
             "username": "worker1",
             "password": "xxx",
             "topic": "kafka-1",
-            "local_dir_path": "/home/duncan/file_get/"
+            "local_dir_path": "/home/duncan/file_get/",
+            "file_pattern": "*.dat"
         },
         "server_2": {
             "protocol": "sftp",
@@ -20,10 +21,11 @@
             "username": "worker2",
             "password": "xxx",
             "topic": "kafka-2",
-            "local_dir_path": "/home/duncan/file_get/"
+            "local_dir_path": "/home/duncan/file_get/",
+            "file_pattern": "*HO*.dat"
         },
         "server_3": {
-            "protocol": "sftp",
+            "protocol": "ftp",
             "host": "192.168.122.108",
             "port": 22,
             "file_dir_path": "/home/worker3/file/",
@@ -31,7 +33,8 @@
             "username": "worker3",
             "password": "xxx",
             "topic": "kafka-3",
-            "local_dir_path": "/home/duncan/file_get/"
+            "local_dir_path": "/home/duncan/file_get/",
+            "file_pattern": "*HO*.*"
         }
     },
     "sqlite_db": {

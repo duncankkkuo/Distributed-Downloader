@@ -9,19 +9,16 @@ import sys
 import os
 import ftplib
 import socket
+import fnmatch
 
 
 def connect(protocol, port, host, username, password):
     if (protocol == 'sftp'):
-        try:
-            paramiko.util.log_to_file('/tmp/paramiko.log')
-            transport = paramiko.Transport((host, port))
-            transport.connect(username=username, password=password)
-            sftp = paramiko.SFTPClient.from_transport(transport)
-            return sftp
-        except:
-            print("SFTP is unavailable,please check the host,username and password!")
-            sys.exit(0)
+        paramiko.util.log_to_file('/tmp/paramiko.log')
+        transport = paramiko.Transport((host, port))
+        transport.connect(username=username, password=password)
+        sftp = paramiko.SFTPClient.from_transport(transport)
+        return sftp
 
     elif (protocol == 'ftp'):
         try:
@@ -120,6 +117,7 @@ def main():
             local_dir_path = json_get['observe_target'][server]['local_dir_path']
             topic = json_get['observe_target'][server]['topic']
             sqlite_db = json_get['sqlite_db']['db_name']
+            file_pattern = json_get['observe_target'][server]['file_pattern']
 
             con = connect(protocol, port, host, username, password)
 
@@ -154,41 +152,40 @@ def main():
             # List file to sql
             file_list = get_file_list(con, protocol, file_dir_path)
             for file_name in file_list:
-                file_path = file_dir_path + file_name
-                file_date = get_file_date(con, protocol, file_path)
-                file_size = get_file_size(con, protocol, file_path)
+                if fnmatch.fnmatch(file_name, file_pattern):
+                    file_path = file_dir_path + file_name
+                    file_date = get_file_date(con, protocol, file_path)
+                    file_size = get_file_size(con, protocol, file_path)
 
-                # Check filename exist in sql
-                if(session.query(Server).filter(Server.name == file_name).count() == 0):
-                    consumer_json = {
-                        "observe_target": {
-                            "host": host,
-                            "username": username,
-                            "password": password,
-                            "protocol": protocol,
-                            "port": port,
-                            "file_dir_path": file_dir_path,
-                            "finish_dir_path": finish_dir_path,
-                            "local_dir_path": local_dir_path,
-                            "file_name": file_name,
-                            "file_size": file_size,
-                            "topic": topic
+                    # Check filename exist in sql
+                    if(session.query(Server).filter(Server.name == file_name).count() == 0):
+                        consumer_json = {
+                            "observe_target": {
+                                "host": host,
+                                "username": username,
+                                "password": password,
+                                "protocol": protocol,
+                                "port": port,
+                                "file_dir_path": file_dir_path,
+                                "finish_dir_path": finish_dir_path,
+                                "local_dir_path": local_dir_path,
+                                "file_name": file_name,
+                                "file_size": file_size,
+                                "topic": topic
+                            }
                         }
-                    }
 
-                    s = Server(file_name, file_date, file_size)
-                    session.add(s)
+                        s = Server(file_name, file_date, file_size)
+                        session.add(s)
+                        session.commit()
 
-                    # Send message to kafka
-                    producer = KafkaProducer(bootstrap_servers=kafka_server)
-                    producer.send(topic, json.dumps(consumer_json).encode('ascii'))
-
-                    session.commit()
+                        # Send message to kafka
+                        producer = KafkaProducer(bootstrap_servers=kafka_server)
+                        producer.send(topic, json.dumps(consumer_json).encode('ascii'))
 
             # Close
             disconnect(con, protocol)
             print('Done')
-}
 
 if __name__ == "__main__":
   main()
