@@ -95,13 +95,6 @@ def main():
     with open('producer.json', 'r') as reader:
         json_get = json.loads(reader.read())
 
-    # Concatenate server string for port 9092
-    kafka_server = ''
-    for server in json_get['observe_target']:
-        kafka_server += json_get['observe_target'][server]['host'] + ':9092,'
-
-    kafka_server = kafka_server[:len(kafka_server) - 1]
-
     # Sqlalchemy
     while(True):
         for server in json_get['observe_target']:
@@ -118,6 +111,7 @@ def main():
             topic = json_get['observe_target'][server]['topic']
             sqlite_db = json_get['sqlite_db']['db_name']
             file_pattern = json_get['observe_target'][server]['file_pattern']
+            kafka_server = json_get['kafka_server']['broker']
 
             con = connect(protocol, port, host, username, password)
 
