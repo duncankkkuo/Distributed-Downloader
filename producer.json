@@ -8,7 +8,7 @@
             "finish_dir_path": "/home/worker1/file_finish/",
             "username": "worker1",
             "password": "xxx",
-            "topic": "kafka-1",
+            "topic": "kafka01",
             "local_dir_path": "/home/duncan/file_get/",
             "file_pattern": "*.dat"
         },
@@ -20,7 +20,7 @@
             "finish_dir_path": "/home/worker2/file_finish/",
             "username": "worker2",
             "password": "xxx",
-            "topic": "kafka-2",
+            "topic": "kafka02",
             "local_dir_path": "/home/duncan/file_get/",
             "file_pattern": "*HO*.dat"
         },
@@ -32,7 +32,7 @@
             "finish_dir_path": "/home/worker3/file_finish/",
             "username": "worker3",
             "password": "xxx",
-            "topic": "kafka-3",
+            "topic": "kafka03",
             "local_dir_path": "/home/duncan/file_get/",
             "file_pattern": "*HO*.*"
         }
@@ -42,5 +42,8 @@
     },
     "sqlite_db": {
         "db_name": "py.db"
+    },
+    "delete_timer": {
+        "timer": 5
     }
 }

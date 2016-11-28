@@ -6,6 +6,7 @@ import os
 import sys
 import ftplib
 import socket
+import pdb
 
 def connect(protocol, port, host, username, password):
     if (protocol == 'sftp'):
@@ -31,15 +32,17 @@ def connect(protocol, port, host, username, password):
 def download_file(connect, protocol, file_dir_path, local_dir_path, file_name):
     if (protocol == 'sftp'):
         try:
-            file_path = file_dir_path + file_name
-            local_path = local_dir_path + file_name
+            #file_path = file_dir_path + file_name
+            #local_path = local_dir_path + file_name
+            file_path = os.path.join(file_dir_path,file_name)
+            local_path = os.path.join(local_dir_path,file_name)
             connect.get(file_path, local_path)
         except:
             traceback.print_exc()
 
     elif (protocol == 'ftp'):
         try:
-            file_path = file_dir_path + file_name
+            file_path = os.path.join(file_dir_path,file_name)
             local_file_name = os.path.join(local_dir_path, file_name)
             file = open(local_file_name, 'wb')
             connect.retrbinary('RETR '+ file_path, file.write)
@@ -49,7 +52,8 @@ def download_file(connect, protocol, file_dir_path, local_dir_path, file_name):
 def move_file(connect, protocol, file_path, finish_path):
     if (protocol == 'sftp'):
         try:
-            con.rename(file_path, finish_path)
+            print("file_path=%s,finish_path=%s\n") % (file_path,finish_path)
+            connect.rename(file_path, finish_path)
         except:
             traceback.print_exc()
 
@@ -67,15 +71,19 @@ def disconnect(connect, protocol):
         connect.quit()
 
 def main():
+    # debug mode
+    #pdb.set_trace()
     # Json
     with open('consumer.json', 'r') as reader:
         json_get = json.loads(reader.read())
+    print 'Reading from consumer.json'
 
     # Connect to kafka
     broker = json_get['kafka_server']['broker']
     group = json_get['kafka_server']['group']
     consumer = KafkaConsumer(group_id = group,
                              bootstrap_servers = broker)
+    print 'Connect to kafka successly'
 
     # Add all topics to topic group
     topic_all = []
@@ -88,6 +96,7 @@ def main():
     # Get the json from kafka
     for message in consumer:
         kafka_json_get = json.loads(message.value)
+        print 'Get json message from kafka successly'
 
         # Json message get
         if(kafka_json_get != None):
@@ -104,9 +113,12 @@ def main():
             port = kafka_json_get['observe_target']['port']
             topic = kafka_json_get['observe_target']['topic']
 
-            file_path = file_dir_path + file_name
-            finish_path = finish_dir_path + file_name
-            local_path = local_dir_path + file_name
+            #file_path = file_dir_path + file_name
+            #finish_path = finish_dir_path + file_name
+            #local_path = local_dir_path + file_name
+            file_path = os.path.join(file_dir_path,file_name)
+            finish_path = os.path.join(finish_dir_path,file_name)
+            local_path = os.path.join(local_dir_path,file_name)
 
             con = connect(protocol, port, host, username, password)
 
@@ -121,10 +133,10 @@ def main():
                 producer = KafkaProducer(bootstrap_servers=broker)
                 producer.send(topic, json.dumps(kafka_json_get).encode('ascii'))
 
-            print file_path
+            print file_name + ' donwnload successly'
 
             # Move finished files to finish_path
-            #move_file(con, protocol, file_path, finish_path)
+            # move_file(con, protocol, file_path, finish_path)
 
             # Close
             disconnect(con, protocol)

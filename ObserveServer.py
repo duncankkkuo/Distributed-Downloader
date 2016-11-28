@@ -10,6 +10,7 @@ import os
 import ftplib
 import socket
 import fnmatch
+import datetime
 
 
 def connect(protocol, port, host, username, password):
@@ -54,15 +55,15 @@ def get_file_date(connect, protocol, file_path):
     if (protocol == 'sftp'):
         try:
             mtime = connect.stat(file_path).st_mtime
-            file_date = datetime.fromtimestamp(mtime)
-            return file_date
+            file_time = datetime.fromtimestamp(mtime)
+            return file_time
         except:
             print "No files in this directory"
 
     elif (protocol == 'ftp'):
         try:
-            file_date = connect.sendcmd('MDTM ' + file_path)
-            return file_date
+            file_time = connect.sendcmd('MDTM ' + file_path)
+            return file_time
         except ftplib.error_perm, resp:
             if str(resp) == "550 No files found":
                 print "No files in this directory"
@@ -96,90 +97,103 @@ def main():
         json_get = json.loads(reader.read())
 
     # Sqlalchemy
-    while(True):
-        for server in json_get['observe_target']:
+    for server in json_get['observe_target']:
 
-            # Auth
-            host = json_get['observe_target'][server]['host']
-            port = json_get['observe_target'][server]['port']
-            username = json_get['observe_target'][server]['username']
-            password = json_get['observe_target'][server]['password']
-            protocol = json_get['observe_target'][server]['protocol']
-            file_dir_path = json_get['observe_target'][server]['file_dir_path']
-            finish_dir_path = json_get['observe_target'][server]['finish_dir_path']
-            local_dir_path = json_get['observe_target'][server]['local_dir_path']
-            topic = json_get['observe_target'][server]['topic']
-            sqlite_db = json_get['sqlite_db']['db_name']
-            file_pattern = json_get['observe_target'][server]['file_pattern']
-            kafka_server = json_get['kafka_server']['broker']
+        # Auth
+        host = json_get['observe_target'][server]['host']
+        port = json_get['observe_target'][server]['port']
+        username = json_get['observe_target'][server]['username']
+        password = json_get['observe_target'][server]['password']
+        protocol = json_get['observe_target'][server]['protocol']
+        file_dir_path = json_get['observe_target'][server]['file_dir_path']
+        finish_dir_path = json_get['observe_target'][server]['finish_dir_path']
+        local_dir_path = json_get['observe_target'][server]['local_dir_path']
+        topic = json_get['observe_target'][server]['topic']
+        sqlite_db = json_get['sqlite_db']['db_name']
+        file_pattern = json_get['observe_target'][server]['file_pattern']
+        kafka_server = json_get['kafka_server']['broker']
+        delete_timer = json_get['delete_timer']['timer']
 
-            con = connect(protocol, port, host, username, password)
+        con = connect(protocol, port, host, username, password)
 
-            # Sqlalchemy
-            engine = create_engine('sqlite:///./'+sqlite_db, echo=True)
-            metadata = MetaData(engine)
+        # Sqlalchemy
+        engine = create_engine('sqlite:///./'+sqlite_db, echo=True)
+        metadata = MetaData(engine)
 
-            Base = declarative_base()
+        Base = declarative_base()
 
-            class Server(Base):
-                __tablename__ = server
+        class Server(Base):
+            __tablename__ = server
 
-                id = Column(Integer, primary_key=True)
-                name = Column(String)
-                date = Column(String)
-                size = Column(Integer)
-                kafka = Column(Integer)
-                sftp = Column(Integer)
+            id = Column(Integer, primary_key=True)
+            name = Column(String)
+            time = Column(String)
+            size = Column(Integer)
 
-                def __init__(self, name, date, size):
-                    self.name = name
-                    self.date = date
-                    self.size = size
-            # Check table exist
-            if not engine.dialect.has_table(engine, server):
-                Base.metadata.create_all(engine)
+            def __init__(self, name, time, size):
+                self.name = name
+                self.time = time
+                self.size = size
+        # Check table exist
+        if not engine.dialect.has_table(engine, server):
+            Base.metadata.create_all(engine)
 
-            Session = sessionmaker()
-            Session.configure(bind=engine)
-            session = Session()
+        Session = sessionmaker()
+        Session.configure(bind=engine)
+        session = Session()
 
-            # List file to sql
-            file_list = get_file_list(con, protocol, file_dir_path)
-            for file_name in file_list:
-                if fnmatch.fnmatch(file_name, file_pattern):
-                    file_path = file_dir_path + file_name
-                    file_date = get_file_date(con, protocol, file_path)
-                    file_size = get_file_size(con, protocol, file_path)
+        # List file to sql
+        file_list = get_file_list(con, protocol, file_dir_path)
+        for file_name in file_list:
+            if fnmatch.fnmatch(file_name, file_pattern):
+                # file_path = file_dir_path + file_name
+                file_path = os.path.join(file_dir_path,file_name)
+                file_time = datetime.datetime.now()
+                file_size = get_file_size(con, protocol, file_path)
 
-                    # Check filename exist in sql
-                    if(session.query(Server).filter(Server.name == file_name).count() == 0):
-                        consumer_json = {
-                            "observe_target": {
-                                "host": host,
-                                "username": username,
-                                "password": password,
-                                "protocol": protocol,
-                                "port": port,
-                                "file_dir_path": file_dir_path,
-                                "finish_dir_path": finish_dir_path,
-                                "local_dir_path": local_dir_path,
-                                "file_name": file_name,
-                                "file_size": file_size,
-                                "topic": topic
-                            }
+                # Check filename exist in sql
+                if(session.query(Server).filter(Server.name == file_name).count() == 0):
+                    consumer_json = {
+                        "observe_target": {
+                            "host": host,
+                            "username": username,
+                            "password": password,
+                            "protocol": protocol,
+                            "port": port,
+                            "file_dir_path": file_dir_path,
+                            "finish_dir_path": finish_dir_path,
+                            "local_dir_path": local_dir_path,
+                            "file_name": file_name,
+                            "file_size": file_size,
+                            "topic": topic
                         }
+                    }
 
-                        s = Server(file_name, file_date, file_size)
-                        session.add(s)
-                        session.commit()
+                    s = Server(file_name, file_time, file_size)
+                    session.add(s)
+                    session.commit()
+                    print '===============add file ' + file_name + ' to db================'
 
-                        # Send message to kafka
-                        producer = KafkaProducer(bootstrap_servers=kafka_server)
-                        producer.send(topic, json.dumps(consumer_json).encode('ascii'))
+                    # Send message to kafka
+                    producer = KafkaProducer(bootstrap_servers=kafka_server)
+                    producer.send(topic, json.dumps(consumer_json).encode('ascii'))
 
-            # Close
-            disconnect(con, protocol)
-            print('Done')
+        # Close
+        disconnect(con, protocol)
+
+        # Delete data from sqlite if file time over regular timer
+        now_time = datetime.datetime.now()
+        if(session.query(Server).filter(Server.name != '').count() > 0):
+            for i in session.query(Server).all():
+                time = datetime.datetime.strptime(i.time, '%Y-%m-%d %H:%M:%S.%f')
+                print '===========check file ' + i.name + ' time================'
+                if(now_time - time).seconds > delete_timer:
+                    session.delete(i)
+                    session.commit()
+                    print '============file ' + file_name + ' delete from db============'
+
+
+        print('Done')
 
 if __name__ == "__main__":
   main()
