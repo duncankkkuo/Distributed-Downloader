@@ -2,10 +2,8 @@
     "kafka_server": {
         "broker": "192.168.122.140:9092,192.168.122.200:9092,192.168.122.108:9092",
         "topic": {
-            "topic_1": "kafka01",
-            "topic_2": "kafka02",
-            "topic_3": "kafka03"
+            "topic_1": "topic01"
         },
-        "group": "Go"
+        "group": "duncan"
     }
 }
