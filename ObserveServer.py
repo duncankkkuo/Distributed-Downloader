@@ -49,7 +49,7 @@ def connect(protocol, port, host, username, password):
             ftp.login(username, password)
             logger.debug('connect to the target server '+host+' successfully')
             return {'status':'success', 'message':ftp}
-        except :
+        except:
             logger.error("FTP failed, host="+host+', username='+username+', traceback='+traceback.format_exc())
             return {'status':'failed', 'message':traceback.format_exc()}
 
@@ -162,10 +162,10 @@ def main():
         logger.debug('waiting for connecting to target server '+host)
         connect_result = connect(protocol, port, host, username, password)
 
-	    client = KafkaClient(hosts=kafka_server)
+        client = KafkaClient(hosts=kafka_server)
         client_topic = client.topics[topic.encode('ascii')]
         producer = client_topic.get_producer(use_rdkafka=False)
-	    logger.debug('connect to the kafka server '+kafka_server+' successfully')
+        logger.debug('connect to the kafka server '+kafka_server+' successfully')
 
         if connect_result['status'] != 'failed':
             con = connect_result['message']
@@ -204,14 +204,12 @@ def main():
                 file_list = file_list_result['message']
                 for file_name in file_list:
                     if fnmatch.fnmatch(file_name, file_pattern):
-                        # file_path = file_dir_path + file_name
-                        file_path = os.path.join(file_dir_path,file_name)
-                        file_time = datetime.datetime.now()
-                        file_size_result = get_file_size(con, protocol, file_path)
-
                         # Check filename exist in sql
                         if(session.query(Server).filter(Server.name == file_name).count() == 0):
+                            file_path = os.path.join(file_dir_path,file_name)
+                            file_size_result = get_file_size(con, protocol, file_path)
                             if file_size_result['status'] != 'failed':
+                        	file_time = datetime.datetime.now()
                                 file_size = file_size_result['message']
                                 consumer_json = {
                                     "observe_target": {
@@ -238,9 +236,8 @@ def main():
                                 # Send message to kafka
                                 producer.produce(json.dumps(consumer_json).encode('ascii'))
                                 logger.debug('send the message of file '+file_name+' information to kafka successfully')
-
             # Close
-	        producer.stop()
+            producer.stop()
             disconnect(con, protocol, host)
 
             # Delete data from sqlite if file time over regular timer

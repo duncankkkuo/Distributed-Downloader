@@ -59,9 +59,9 @@ def download_file(connect, protocol, file_dir_path, local_dir_path, file_name):
             connect.get(file_path, local_path)
             logger.debug('downlaod the file '+file_name+' successfully')
             return {'status':'success'}
-        except:
+        except IOError, err:
             logger.error('download the file '+file_path+' fail, traceback='+traceback.format_exc())
-            return {'status':'failed', 'message':traceback.format_exc()}
+            return {'status':'failed', 'message':traceback.format_exc(), 'error':err}
 
     elif (protocol == 'ftp'):
         file_path = os.path.join(file_dir_path,file_name)
@@ -71,10 +71,9 @@ def download_file(connect, protocol, file_dir_path, local_dir_path, file_name):
             connect.retrbinary('RETR '+ file_path, file.write)
             logger.debug('downlaod the file '+file_name+' successfully')
             return {'status':'success'}
-        except Exception, e:
+        except IOError, err:
             logger.error('download the file '+file_path+' fail, traceback='+traceback.format_exc())
-            logger.error(e)
-            return {'status':'failed', 'message':e}
+            return {'status':'failed', 'message':traceback.format_exc(), 'error':err}
 
 def move_file(connect, protocol, file_path, finish_path):
     if (protocol == 'sftp'):
@@ -146,10 +145,10 @@ def main():
     auto_commit_enable = True
     )
 
+
     # Get the json from kafka
     for message in consumer:
         kafka_json_get = json.loads(message.value)
-
         # Json message get
         if(kafka_json_get != None):
             # Auth
@@ -200,15 +199,24 @@ def main():
                                 logger.debug(file_name+' move successfully')
                                 time.sleep(1)
                         else:
-                            logger.debug('download failed, remove temporary file of '+file_name)
-                            try:
-                                os.remove(os.path.join(local_dir_path,file_name))
-                                logger.debug('temporary file of '+file_name+' is deleted')
-                            except:
-                                logger.debug('temporary file of '+file_name+' failed')
-                                logger.error('traceback:'+traceback.format_exc())
+                            if download_file_result['error'].errno == 2:
+                            	logger.debug('download failed, remove temporary file of '+file_name)
+                                try:
+                                    os.remove(os.path.join(local_dir_path,file_name))
+                                    logger.debug('temporary file of '+file_name+' is deleted')
+                                except:
+                                    logger.debug('temporary file of '+file_name+' failed')
+                                    logger.error('traceback:'+traceback.format_exc())
+                            else:
+                                client = KafkaClient(hosts=broker)
+                                client_topic = client.topics[topic.encode('ascii')]
+                                producer = client_topic.get_producer(use_rdkafka=False)
+                                producer.produce(json.dumps(kafka_json_get).encode('ascii'))
+                                producer.stop()
+                                logger.warning('download failed, put '+file_name+' back to kafka, and sleep 5 secs')
+                               	time.sleep(5)
                     else:
-			            client = KafkaClient(hosts=broker)
+                        client = KafkaClient(hosts=broker)
                         client_topic = client.topics[topic.encode('ascii')]
                         producer = client_topic.get_producer(use_rdkafka=False)
                         producer.produce(json.dumps(kafka_json_get).encode('ascii'))
@@ -220,7 +228,7 @@ def main():
                     client_topic = client.topics[topic.encode('ascii')]
                     producer = client_topic.get_producer(use_rdkafka=False)
                     producer.produce(json.dumps(kafka_json_get).encode('ascii'))
-		            producer.stop()
+                    producer.stop()
                     logger.warning('local file count exceed '+str(local_dir_file_count_limit)+', put '+file_name+' back to kafka, and sleep 5 secs')
                     time.sleep(5)
 
