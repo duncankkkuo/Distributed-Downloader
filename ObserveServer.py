@@ -14,21 +14,11 @@ import datetime
 import logging
 import traceback
 
+logging.basicConfig(level=logging.DEBUG,
+                    filename='/var/log/multi-download/ObserveServer.log',
+                    format='%(asctime)s - %(levelname)s - %(message)s'
+                    )
 logger = logging.getLogger('ObserveServerLogger')
-logger.setLevel(logging.DEBUG)
-
-fh = logging.FileHandler('/var/log/multi-download/ObserveServer.log')
-fh.setLevel(logging.DEBUG)
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
-
-logger.addHandler(fh)
-logger.addHandler(ch)
 
 def connect(protocol, port, host, username, password):
     if (protocol == 'sftp'):
@@ -246,7 +236,7 @@ def main():
                 logger.debug('check the file datetime from table '+server+' to decide whether to delete')
                 for i in session.query(Server).all():
                     time = datetime.datetime.strptime(i.time, '%Y-%m-%d %H:%M:%S.%f')
-                    if(now_time - time).seconds > delete_timer:
+                    if((now_time - time).total_seconds())/3600 > delete_timer:
                         session.delete(i)
                         session.commit()
                         logger.debug('delete the data '+i.name+' from table '+server)

@@ -12,21 +12,11 @@ import time
 import pdb
 import logging
 
+logging.basicConfig(level=logging.DEBUG,
+                    filename='/var/log/multi-download/DownloadServer.log',
+                    format='%(asctime)s - %(levelname)s - %(message)s'
+                    )
 logger = logging.getLogger('DownloadServerLogger')
-logger.setLevel(logging.DEBUG)
-
-fh = logging.FileHandler('/var/log/multi-download/DownloadServer.log')
-fh.setLevel(logging.DEBUG)
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
-
-logger.addHandler(fh)
-logger.addHandler(ch)
 
 def connect(protocol, port, host, username, password):
     if (protocol == 'sftp'):
@@ -125,6 +115,7 @@ def main():
 
     # Connect to kafka
     broker = json_get['kafka_server']['broker']
+    zookeeper = json_get['kafka_server']['zookeeper']
     group = json_get['kafka_server']['group']
     logger.debug('waiting for connecting to kafka server '+broker)
     client = KafkaClient(hosts=broker)
@@ -140,9 +131,10 @@ def main():
     logger.debug('set up the all kafka topics '+str(topic_all)+' successly')
 
     consumer = topic.get_balanced_consumer(
-    consumer_group = group.encode('ascii'),
-    auto_offset_reset = OffsetType.LATEST,
-    auto_commit_enable = True
+        zookeeper_connect = zookeeper,
+        consumer_group = group.encode('ascii'),
+        auto_offset_reset = OffsetType.LATEST,
+        auto_commit_enable = True
     )
 
 
@@ -200,7 +192,7 @@ def main():
                                 time.sleep(1)
                         else:
                             if download_file_result['error'].errno == 2:
-                            	logger.debug('download failed, remove temporary file of '+file_name)
+                            	logger.warning('download failed, remove temporary file of '+file_name)
                                 try:
                                     os.remove(os.path.join(local_dir_path,file_name))
                                     logger.debug('temporary file of '+file_name+' is deleted')
